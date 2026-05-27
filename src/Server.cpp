@@ -30,6 +30,8 @@ Server::~Server()
 		close(it->first);
 		delete it->second;
 	}
+	for (std::map<std::string, Channel *>::iterator it = _channels.begin(); it != _channels.end(); ++it)
+		delete it->second;
 	if (_listenFd >= 0)
 		close(_listenFd);
 }
@@ -82,9 +84,9 @@ void Server::createListeningSocket()
 	std::string port = intToString(_port);
 
 	std::memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE;
+	hints.ai_family = AF_INET;  // IPv4 only  (AF_UNSPEC) - to use IPv6 also
+	hints.ai_socktype = SOCK_STREAM; // TCP socket
+	hints.ai_flags = AI_PASSIVE; // setting address to be suitable for bind() AI_PASSIVE 0.0.0.0
 	int status = getaddrinfo(NULL, port.c_str(), &hints, &result);
 	if (status != 0)
 		throw std::runtime_error(std::string("getaddrinfo: ")
@@ -96,7 +98,7 @@ void Server::createListeningSocket()
 		if (_listenFd < 0)
 			continue;
 		int yes = 1;
-		if (setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &yes,
+		if (setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, // SOL_SOCKET - socket-level option, SO_REUSEADDR - immediately reuse port
 				sizeof(yes)) < 0)
 		{
 			close(_listenFd);
@@ -105,7 +107,7 @@ void Server::createListeningSocket()
 		}
 		setNonBlocking(_listenFd);
 		if (bind(_listenFd, rp->ai_addr, rp->ai_addrlen) == 0
-			&& listen(_listenFd, SOMAXCONN) == 0)
+			&& listen(_listenFd, SOMAXCONN) == 0) // SOMAXCONN - max pending connction queue
 			break;
 		close(_listenFd);
 		_listenFd = -1;
@@ -199,6 +201,26 @@ void Server::disconnectClient(int fd, const std::string &reason)
 	if (it == _clients.end())
 		return;
 
+	// added this part
+	std::map<std::string, Channel *>::iterator cit = _channels.begin();
+	while (cit != _channels.end())
+	{
+		Channel *channel = cit->second;
+		if (channel->hasMember(fd))
+		{
+				std::string nick = it->second->getNickname();
+				channel->broadcast(":" + nick + "!" + it->second->getUsername() + "PART");
+				channel->removeMember(fd);
+				if (channel->isEmpty())
+				{
+					delete channel;
+					_channels.erase(cit++);
+					continue;
+				}
+		}
+		++cit;
+	}
+
 	if (!it->second->getNickname().empty())
 		_nicknames.erase(it->second->getNickname());
 	std::cout << "client fd " << fd << " disconnected: " << reason << std::endl;
@@ -228,6 +250,12 @@ void Server::handleCommand(Client &client, const Message &message)
 		handleUser(client, message);
 	else if (command == "PING")
 		handlePing(client, message);
+	else if (command == "JOIN") // added this
+		handleJoin(client, message);
+	else if (command == "WHO") // added this
+		handleWho(client, message);
+	else if (command == "PRIVMSG") // added this
+		handlePrivmsg(client, message);
 	else if (command == "QUIT")
 		disconnectClient(client.getFd(), "QUIT");
 	else if (!client.isRegistered())

@@ -8,7 +8,9 @@ SRCS := \
 	src/main.cpp \
 	src/Client.cpp \
 	src/Message.cpp \
-	src/Server.cpp
+	src/Server.cpp \
+	src/Channel.cpp \
+	src/cmd/Join.cpp src/cmd/Who.cpp src/cmd/Privmsg.cpp
 
 OBJS := $(SRCS:.cpp=.o)
 
