@@ -3,6 +3,11 @@
 void Server::handlePrivmsg(Client &client, const Message &message)
 {
 	const std::vector<std::string> &params = message.getParams();
+	if (!client.isRegistered())
+	{
+		sendNumeric(client, "451", " :You have not registered");
+		return;
+	}
 	if (params.size() < 2)
 		return ;
 	std::string target = params[0];

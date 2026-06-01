@@ -3,6 +3,11 @@
 void Server::handleWho(Client &client, const Message &message)
 {
 	const std::vector<std::string> &params = message.getParams();
+	if (!client.isRegistered())
+	{
+		sendNumeric(client, "451", " :You have not registered");
+		return;
+	}
 	if (params.empty())
 	{
 		sendNumeric(client, "315", " *:End of /WHO list");

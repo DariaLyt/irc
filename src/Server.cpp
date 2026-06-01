@@ -256,6 +256,12 @@ void Server::handleCommand(Client &client, const Message &message)
 		handleWho(client, message);
 	else if (command == "PRIVMSG") // added this
 		handlePrivmsg(client, message);
+	else if (command == "PART")
+		handlePart(client, message);
+	else if (command == "KICK")
+		handleKick(client, message);
+	else if (command == "TOPIC")
+		handleTopic(client, message);
 	else if (command == "QUIT")
 		disconnectClient(client.getFd(), "QUIT");
 	else if (!client.isRegistered())

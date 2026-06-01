@@ -46,6 +46,9 @@ class Server
 		void handleNick(Client &client, const Message &message);
 		void handleUser(Client &client, const Message &message);
 		void handlePing(Client &client, const Message &message);
+		void handlePart(Client &client, const Message &message);
+		void handleKick(Client &client, const Message &message);
+		void handleTopic(Client &client, const Message  &message);
 
 		void handleJoin(Client &client, const Message &message);
 		void handleWho(Client &client, const Message &message);

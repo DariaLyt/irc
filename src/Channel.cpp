@@ -42,3 +42,41 @@ void Channel::broadcast(const std::string &msg, int excludeFd)
 			it->second->queueOutput(msg);
 	}
 }
+
+const std::string &Channel::getTopic() const
+{
+	return (_topic);
+}
+
+void Channel::setTopic(const std::string &topic)
+{
+	_topic = topic;
+}
+
+void Channel::addOperator(int fd)
+{
+	if (!isOperator(fd))
+		_operators.push_back(fd);
+}
+
+void Channel::removeOperator(int fd)
+{
+	for (std::vector<int>::iterator it = _operators.begin(); it != _operators.end(); ++it)
+	{
+		if (*it == fd)
+		{
+			_operators.erase(it);
+			break;
+		}
+	}
+}
+
+bool Channel::isOperator(int fd) const
+{
+	for (std::size_t i = 0; i < _operators.size(); ++i)
+	{
+		if (_operators[i] == fd)
+			return (true);
+	}
+	return (false);
+}

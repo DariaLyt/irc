@@ -3,6 +3,11 @@
 void Server::handleJoin(Client &client, const Message &message)
 {
 	const std::vector<std::string> &params = message.getParams();
+	if (!client.isRegistered())
+	{
+		sendNumeric(client, "451", " :You have not registered");
+		return;
+	}
 	if (params.empty())
 	{
 		sendNumeric(client, "461", "JOIN : Not enough parameters");
@@ -16,14 +21,20 @@ void Server::handleJoin(Client &client, const Message &message)
 		return ;
 	}
 
-	if (_channels.find(channelName) == _channels.end()) // creating the channe if it doesnt exist
+	bool isCreator = false;
+	if (_channels.find(channelName) == _channels.end())
+	{ // creating the channel if it doesnt exist
 		_channels[channelName] = new Channel(channelName);
+		isCreator = true;
+	}
 
 	Channel *channel = _channels[channelName];
 	if (channel->hasMember(client.getFd())) // check if client is already in channel
 		return ;
 
 	channel->addMember(&client);
+	if (isCreator)
+        channel->addOperator(client.getFd());
 	std::string joinMsg = ":" + client.getNickname() + "!" + client.getUsername() + "JOIN " + channelName + "\r\n";
 	channel->broadcast(joinMsg);
 
