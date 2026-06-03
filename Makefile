@@ -1,7 +1,7 @@
 NAME := ircserv
 
 CXX := c++
-CXXFLAGS := -Wall -Wextra -Werror -std=c++98
+CXXFLAGS := -Wall -Wextra -Werror -std=c++20
 CPPFLAGS := -Iinclude
 
 SRCS := \
@@ -11,7 +11,7 @@ SRCS := \
 	src/Server.cpp \
 	src/Channel.cpp \
 	src/cmd/Join.cpp src/cmd/Who.cpp src/cmd/Privmsg.cpp src/cmd/Kick.cpp \
-	src/cmd/Part.cpp src/cmd/Topic.cpp
+	src/cmd/Part.cpp src/cmd/Topic.cpp src/cmd/Mode.cpp src/cmd/Invite.cpp
 
 OBJS := $(SRCS:.cpp=.o)
 

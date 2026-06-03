@@ -1,6 +1,6 @@
 #include "Channel.hpp"
 
-Channel::Channel(const std::string &name) : _name(name) {}
+Channel::Channel(const std::string &name) : _name(name), _inviteOnly(false), _topicResticted(true), _key(""), _maxUsers(0)  {}
 
 Channel::~Channel() {}
 
@@ -76,6 +76,74 @@ bool Channel::isOperator(int fd) const
 	for (std::size_t i = 0; i < _operators.size(); ++i)
 	{
 		if (_operators[i] == fd)
+			return (true);
+	}
+	return (false);
+}
+
+bool Channel::isInviteOnly() const
+{
+	return (_inviteOnly);
+}
+
+void Channel::setInviteOnly(bool value)
+{
+	_inviteOnly = value;
+}
+
+bool Channel::isTopicRestricted() const
+{
+	return (_topicResticted);
+}
+
+void Channel::setTopicRestricted(bool value)
+{
+	_topicResticted = value;
+}
+
+const std::string &Channel::getKey() const
+{
+	return (_key);
+}
+
+void Channel::setKey(const std::string &key)
+{
+	_key = key;
+}
+
+std::size_t Channel::getMaxUsers() const 
+{
+	return (_maxUsers);
+}
+
+void Channel::setMaxUsers(std::size_t limit)
+{
+	_maxUsers = limit;
+}
+
+void Channel::addInvite(int fd)
+{
+	if (!isInvited(fd))
+		_invitedFds.push_back(fd);
+}
+
+void Channel::removeInvite(int fd)
+{
+	for (std::vector<int>::iterator it = _invitedFds.begin(); it != _invitedFds.end(); it++)
+	{
+		if (*it == fd)
+		{
+			_invitedFds.erase(it);
+			break;
+		}
+	}
+}
+
+bool Channel::isInvited(int fd) const
+{
+	for (std::size_t i = 0; i <_invitedFds.size(); ++i)
+	{
+		if (_invitedFds[i] == fd)
 			return (true);
 	}
 	return (false);

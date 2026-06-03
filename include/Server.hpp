@@ -54,6 +54,9 @@ class Server
 		void handleWho(Client &client, const Message &message);
 		void handlePrivmsg(Client &client, const Message &message);
 
+		void handleMode(Client &client, const Message &message);
+		void handleInvite(Client &client, const Message &mesage);
+
 		void maybeRegister(Client &client);
 		bool nicknameInUse(const std::string &nickname, int requesterFd) const;
 		std::string clientTarget(const Client &client) const;

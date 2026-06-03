@@ -27,8 +27,34 @@ void Server::handleJoin(Client &client, const Message &message)
 		_channels[channelName] = new Channel(channelName);
 		isCreator = true;
 	}
-
+	
 	Channel *channel = _channels[channelName];
+	if (!isCreator)
+	{
+		if (channel->getMaxUsers() > 0 && channel->getMembers().size() >= channel->getMaxUsers())
+		{
+			sendNumeric(client, "471", channelName + " :Cannot join channel");
+			return;
+		}
+		if (!channel->getKey().empty())
+		{
+			std::string providedKey = (params.size() > 1) ? params[1] : "";
+			if (providedKey != channel->getKey())
+			{
+				sendNumeric(client, "475", channelName + " :Cannot join channel");
+				return;
+			}
+		}
+		if (channel->isInviteOnly())
+		{
+			if (!channel->isInvited(client.getFd()))
+			{
+				sendNumeric(client, "473", channelName + " :Cannot join channel");
+				return;
+			}
+			channel->removeInvite(client.getFd());
+		}
+	}
 	if (channel->hasMember(client.getFd())) // check if client is already in channel
 		return ;
 
@@ -38,13 +64,18 @@ void Server::handleJoin(Client &client, const Message &message)
 	std::string joinMsg = ":" + client.getNickname() + "!" + client.getUsername() + "JOIN " + channelName + "\r\n";
 	channel->broadcast(joinMsg);
 
-	sendNumeric(client, "332", channelName + " :Welcome to " + channelName);
+	if (!channel->getTopic().empty())
+		sendNumeric(client, "332", channelName + " :" + channel->getTopic());
+	else
+		sendNumeric(client, "332", channelName + " :Welcome to " + channelName);
 	std::string userList = "";
 	const std::map<int, Client*> &members = channel->getMembers();
-	for (std::map<int , Client *>::const_iterator  it = members.begin(); it!=members.end(); ++it)
+	for (std::map<int, Client*>::const_iterator it = members.begin(); it != members.end(); ++it)
 	{
 		if (!userList.empty())
 			userList += " ";
+		if (channel->isOperator(it->first))
+			userList += "@";
 		userList += it->second->getNickname();	
 	}
 	sendNumeric(client, "353", "= "  + channelName + " :" + userList);

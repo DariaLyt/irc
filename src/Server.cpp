@@ -262,6 +262,10 @@ void Server::handleCommand(Client &client, const Message &message)
 		handleKick(client, message);
 	else if (command == "TOPIC")
 		handleTopic(client, message);
+	else if (command == "MODE")
+		handleMode(client, message);
+	else if (command == "INVITE")
+		handleInvite(client, message);
 	else if (command == "QUIT")
 		disconnectClient(client.getFd(), "QUIT");
 	else if (!client.isRegistered())
