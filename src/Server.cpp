@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
+extern bool g_serverRunning;
 
 Server::Server(int port, const std::string &password)
 	: _port(port),
@@ -43,7 +44,7 @@ void Server::init()
 
 void Server::run()
 {
-	while (true)
+	while (g_serverRunning)
 	{
 		rebuildPollFds();
 		int ready = poll(&_pollFds[0], _pollFds.size(), -1);
@@ -171,10 +172,19 @@ void Server::readClient(int fd)
 		disconnectClient(fd, "client closed connection");
 		return;
 	}
-	Client &client = *_clients[fd];
-	client.appendInput(buffer, static_cast<std::size_t>(received));
-	while (client.hasCompleteLine() && _clients.find(fd) != _clients.end())
-		handleLine(client, client.popLine());
+	// this is to fix invalid read after QUIT
+	std::map<int, Client *>::iterator it = _clients.find(fd);
+	if (it == _clients.end())
+		return;
+	Client *client = it->second;
+	client->appendInput(buffer, static_cast<std::size_t>(received));
+	while(_clients.find(fd) != _clients.end() && client->hasCompleteLine())
+		handleLine(*client, client->popLine());
+	// 
+	// Client &client = *_clients[fd];
+	// client.appendInput(buffer, static_cast<std::size_t>(received));
+	// while (client.hasCompleteLine() && _clients.find(fd) != _clients.end())
+	// 	handleLine(client, client.popLine());
 }
 
 void Server::writeClient(int fd)
@@ -218,7 +228,8 @@ void Server::disconnectClient(int fd, const std::string &reason)
 					continue;
 				}
 		}
-		++cit;
+		else
+			++cit;
 	}
 
 	if (!it->second->getNickname().empty())
