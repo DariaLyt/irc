@@ -4,6 +4,15 @@
 #include <exception>
 #include <iostream>
 #include <string>
+#include <csignal>
+
+bool g_serverRunning = true; 
+
+static void handleSigint(int signum)
+{
+	(void)signum;
+	g_serverRunning = false;
+}
 
 static bool isDigits(const char *value)
 {
@@ -41,6 +50,7 @@ int main(int argc, char **argv)
 
 		if (password.empty())
 			throw std::runtime_error("password must not be empty");
+		std::signal(SIGINT, handleSigint);
 		Server server(port, password);
 		server.init();
 		server.run();

@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <sys/socket.h>
 #include <unistd.h>
+extern bool g_serverRunning;
 
 Server::Server(int port, const std::string &password)
 	: _port(port),
@@ -30,6 +31,8 @@ Server::~Server()
 		close(it->first);
 		delete it->second;
 	}
+	for (std::map<std::string, Channel *>::iterator it = _channels.begin(); it != _channels.end(); ++it)
+		delete it->second;
 	if (_listenFd >= 0)
 		close(_listenFd);
 }
@@ -41,7 +44,7 @@ void Server::init()
 
 void Server::run()
 {
-	while (true)
+	while (g_serverRunning)
 	{
 		rebuildPollFds();
 		int ready = poll(&_pollFds[0], _pollFds.size(), -1);
@@ -82,9 +85,9 @@ void Server::createListeningSocket()
 	std::string port = intToString(_port);
 
 	std::memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE;
+	hints.ai_family = AF_INET;  // IPv4 only  (AF_UNSPEC) - to use IPv6 also
+	hints.ai_socktype = SOCK_STREAM; // TCP socket
+	hints.ai_flags = AI_PASSIVE; // setting address to be suitable for bind() AI_PASSIVE 0.0.0.0
 	int status = getaddrinfo(NULL, port.c_str(), &hints, &result);
 	if (status != 0)
 		throw std::runtime_error(std::string("getaddrinfo: ")
@@ -96,7 +99,7 @@ void Server::createListeningSocket()
 		if (_listenFd < 0)
 			continue;
 		int yes = 1;
-		if (setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &yes,
+		if (setsockopt(_listenFd, SOL_SOCKET, SO_REUSEADDR, &yes, // SOL_SOCKET - socket-level option, SO_REUSEADDR - immediately reuse port
 				sizeof(yes)) < 0)
 		{
 			close(_listenFd);
@@ -105,7 +108,7 @@ void Server::createListeningSocket()
 		}
 		setNonBlocking(_listenFd);
 		if (bind(_listenFd, rp->ai_addr, rp->ai_addrlen) == 0
-			&& listen(_listenFd, SOMAXCONN) == 0)
+			&& listen(_listenFd, SOMAXCONN) == 0) // SOMAXCONN - max pending connction queue
 			break;
 		close(_listenFd);
 		_listenFd = -1;
@@ -169,10 +172,19 @@ void Server::readClient(int fd)
 		disconnectClient(fd, "client closed connection");
 		return;
 	}
-	Client &client = *_clients[fd];
-	client.appendInput(buffer, static_cast<std::size_t>(received));
-	while (client.hasCompleteLine() && _clients.find(fd) != _clients.end())
-		handleLine(client, client.popLine());
+	// this is to fix invalid read after QUIT
+	std::map<int, Client *>::iterator it = _clients.find(fd);
+	if (it == _clients.end())
+		return;
+	Client *client = it->second;
+	client->appendInput(buffer, static_cast<std::size_t>(received));
+	while(_clients.find(fd) != _clients.end() && client->hasCompleteLine())
+		handleLine(*client, client->popLine());
+	// 
+	// Client &client = *_clients[fd];
+	// client.appendInput(buffer, static_cast<std::size_t>(received));
+	// while (client.hasCompleteLine() && _clients.find(fd) != _clients.end())
+	// 	handleLine(client, client.popLine());
 }
 
 void Server::writeClient(int fd)
@@ -199,9 +211,72 @@ void Server::disconnectClient(int fd, const std::string &reason)
 	if (it == _clients.end())
 		return;
 
-	if (!it->second->getNickname().empty())
-		_nicknames.erase(it->second->getNickname());
-	std::cout << "client fd " << fd << " disconnected: " << reason << std::endl;
+	std::string nick = it->second->getNickname();
+	std::string user = it->second->getUsername();
+	std::string quitMsg = ":" + nick + "!" + user + " QUIT :" + reason + "\r\n";
+	std::vector<Client *> alerted;
+
+	// added this part
+	std::map<std::string, Channel *>::iterator cit = _channels.begin();
+	while (cit != _channels.end())
+	{
+		Channel *channel = cit->second;
+		// changed if statement, to fix double quit alert message
+		if (channel->hasMember(fd))
+		{
+			const std::map<int, Client *> &members = channel->getMembers();
+			for(std::map<int, Client *>::const_iterator mit = members.begin(); mit != members.end(); ++mit)
+			{
+				Client *peer = mit->second;
+				if (peer->getFd() == fd)
+					continue;
+				bool alreadyAlerted = false;
+				for(std::size_t i = 0; i < alerted.size(); ++i)
+				{
+					if (alerted[i] == peer)
+					{
+						alreadyAlerted = true;
+						break;
+					}
+				} 
+
+				if (!alreadyAlerted)
+				{
+					peer->queueOutput(quitMsg);
+					alerted.push_back(peer);
+				}
+			}
+			channel->removeMember(fd);
+			channel->removeOperator(fd);
+			if (channel->isEmpty())
+			{
+				delete channel;
+				_channels.erase(cit++);
+				continue;
+			}
+		}
+		else
+			++cit;
+		// 	std::string nick = it->second->getNickname();
+		// 	channel->broadcast(":" + nick + "!" + it->second->getUsername() + "PART");
+		// 	channel->removeMember(fd);
+		// 	if (channel->isEmpty())
+		// 	{
+		// 		delete channel;
+		// 		_channels.erase(cit++);
+		// 		continue;
+		// 	}
+		// }
+		// else
+		// 	++cit;
+	}
+
+	// if (!it->second->getNickname().empty())
+	// 	_nicknames.erase(it->second->getNickname());
+	// std::cout << "client fd " << fd << " disconnected: " << reason << std::endl;
+	if (!nick.empty())
+		_nicknames.erase(nick);
+	std::cout << "client fd" << fd << " disconnected: " << reason <<std::endl;
 	close(fd);
 	delete it->second;
 	_clients.erase(it);
@@ -228,6 +303,22 @@ void Server::handleCommand(Client &client, const Message &message)
 		handleUser(client, message);
 	else if (command == "PING")
 		handlePing(client, message);
+	else if (command == "JOIN") // added this
+		handleJoin(client, message);
+	else if (command == "WHO") // added this
+		handleWho(client, message);
+	else if (command == "PRIVMSG") // added this
+		handlePrivmsg(client, message);
+	else if (command == "PART")
+		handlePart(client, message);
+	else if (command == "KICK")
+		handleKick(client, message);
+	else if (command == "TOPIC")
+		handleTopic(client, message);
+	else if (command == "MODE")
+		handleMode(client, message);
+	else if (command == "INVITE")
+		handleInvite(client, message);
 	else if (command == "QUIT")
 		disconnectClient(client.getFd(), "QUIT");
 	else if (!client.isRegistered())

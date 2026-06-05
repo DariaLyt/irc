@@ -3,6 +3,7 @@
 
 # include "Client.hpp"
 # include "Message.hpp"
+# include "Channel.hpp"
 
 # include <map>
 # include <poll.h>
@@ -25,6 +26,7 @@ class Server
 		std::vector<struct pollfd> _pollFds;
 		std::map<int, Client *> _clients;
 		std::map<std::string, int> _nicknames;
+		std::map<std::string, Channel *> _channels;
 
 		Server();
 		Server(const Server &other);
@@ -44,6 +46,16 @@ class Server
 		void handleNick(Client &client, const Message &message);
 		void handleUser(Client &client, const Message &message);
 		void handlePing(Client &client, const Message &message);
+		void handlePart(Client &client, const Message &message);
+		void handleKick(Client &client, const Message &message);
+		void handleTopic(Client &client, const Message  &message);
+
+		void handleJoin(Client &client, const Message &message);
+		void handleWho(Client &client, const Message &message);
+		void handlePrivmsg(Client &client, const Message &message);
+
+		void handleMode(Client &client, const Message &message);
+		void handleInvite(Client &client, const Message &mesage);
 
 		void maybeRegister(Client &client);
 		bool nicknameInUse(const std::string &nickname, int requesterFd) const;
@@ -59,3 +71,16 @@ class Server
 };
 
 #endif
+
+
+/*
+Resolve address
+    ↓
+Create socket
+    ↓
+Configure socket
+    ↓
+Bind to port
+    ↓
+Start listening
+*/
