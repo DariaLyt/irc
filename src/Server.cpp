@@ -211,30 +211,72 @@ void Server::disconnectClient(int fd, const std::string &reason)
 	if (it == _clients.end())
 		return;
 
+	std::string nick = it->second->getNickname();
+	std::string user = it->second->getUsername();
+	std::string quitMsg = ":" + nick + "!" + user + " QUIT :" + reason + "\r\n";
+	std::vector<Client *> alerted;
+
 	// added this part
 	std::map<std::string, Channel *>::iterator cit = _channels.begin();
 	while (cit != _channels.end())
 	{
 		Channel *channel = cit->second;
+		// changed if statement, to fix double quit alert message
 		if (channel->hasMember(fd))
 		{
-				std::string nick = it->second->getNickname();
-				channel->broadcast(":" + nick + "!" + it->second->getUsername() + "PART");
-				channel->removeMember(fd);
-				if (channel->isEmpty())
-				{
-					delete channel;
-					_channels.erase(cit++);
+			const std::map<int, Client *> &members = channel->getMembers();
+			for(std::map<int, Client *>::const_iterator mit = members.begin(); mit != members.end(); ++mit)
+			{
+				Client *peer = mit->second;
+				if (peer->getFd() == fd)
 					continue;
+				bool alreadyAlerted = false;
+				for(std::size_t i = 0; i < alerted.size(); ++i)
+				{
+					if (alerted[i] == peer)
+					{
+						alreadyAlerted = true;
+						break;
+					}
+				} 
+
+				if (!alreadyAlerted)
+				{
+					peer->queueOutput(quitMsg);
+					alerted.push_back(peer);
 				}
+			}
+			channel->removeMember(fd);
+			channel->removeOperator(fd);
+			if (channel->isEmpty())
+			{
+				delete channel;
+				_channels.erase(cit++);
+				continue;
+			}
 		}
 		else
 			++cit;
+		// 	std::string nick = it->second->getNickname();
+		// 	channel->broadcast(":" + nick + "!" + it->second->getUsername() + "PART");
+		// 	channel->removeMember(fd);
+		// 	if (channel->isEmpty())
+		// 	{
+		// 		delete channel;
+		// 		_channels.erase(cit++);
+		// 		continue;
+		// 	}
+		// }
+		// else
+		// 	++cit;
 	}
 
-	if (!it->second->getNickname().empty())
-		_nicknames.erase(it->second->getNickname());
-	std::cout << "client fd " << fd << " disconnected: " << reason << std::endl;
+	// if (!it->second->getNickname().empty())
+	// 	_nicknames.erase(it->second->getNickname());
+	// std::cout << "client fd " << fd << " disconnected: " << reason << std::endl;
+	if (!nick.empty())
+		_nicknames.erase(nick);
+	std::cout << "client fd" << fd << " disconnected: " << reason <<std::endl;
 	close(fd);
 	delete it->second;
 	_clients.erase(it);
