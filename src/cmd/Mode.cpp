@@ -35,7 +35,7 @@ void Server::handleMode(Client &client, const Message &message)
 			modes += "i";
 		if (channel->isTopicRestricted())
 			modes += "t";
-		if (channel->getKey().empty())
+		if (!channel->getKey().empty())
 		{
 			modes += "k";
 			modeParams += " " + channel->getKey();

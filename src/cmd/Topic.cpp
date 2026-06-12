@@ -27,18 +27,20 @@ void Server::handleTopic(Client &client, const Message &message)
     }
 
     if (params.size() == 1) {
-        if (channel->getTopic().empty()) {
-            sendNumeric(client, "331", channelName + " :No topic is set");
-        } else {
-            sendNumeric(client, "332", channelName + " :" + channel->getTopic());
-        }
-        return;
-    }
+		if (channel->getTopic().empty()) {
+			sendNumeric(client, "331", channelName + " :No topic is set");
+		} else {
+			sendNumeric(client, "332", channelName + " :" + channel->getTopic());
+		}
+		return;
+	}
+	if (channel->isTopicRestricted() && !channel->isOperator(client.getFd())){
+		sendNumeric(client, "482", channelName + " :You're not channel operator");
+		return;
+	}
 
-    std::string newTopic = params[1];
-    channel->setTopic(newTopic);
-
-    std::string topicMsg = ":" + client.getNickname() + "!" + client.getUsername() + 
-                           " TOPIC " + channelName + " :" + newTopic + "\r\n";
-    channel->broadcast(topicMsg);
+	std::string newTopic = params[1];
+	channel->setTopic(newTopic);
+	std::string topicMsg = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost TOPIC " + channelName + " :" + newTopic + "\r\n";
+	channel->broadcast(topicMsg);
 }
