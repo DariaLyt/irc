@@ -21,6 +21,8 @@ void Server::handlePrivmsg(Client &client, const Message &message)
 	}
 	std::string target = params[0];
 	std::string text = params[1];
+	for (std::vector<std::string>::size_type i = 2; i < params.size(); ++i)
+		text += " " + params[i];
 	std::string senderPrefix = ":" + client.getNickname() + "!" + client.getUsername() + "@localhost";
 	std::string finalMsg = senderPrefix + " PRIVMSG " + target + " :" + text + "\r\n";
 	if (target[0] == '#')

@@ -29,10 +29,10 @@ static bool isDigits(const char *value)
 static int parsePort(const char *value)
 {
 	if (!isDigits(value))
-		throw std::runtime_error("port must be a number between 1 and 65535");
+		throw std::runtime_error("port must be a number between 1024 and 65535");
 	long port = std::strtol(value, NULL, 10);
 	if (port < 1024 || port > 65535)
-		throw std::runtime_error("port must be a number between 1 and 65535");
+		throw std::runtime_error("port must be a number between 1024 and 65535");
 	return static_cast<int>(port);
 }
 

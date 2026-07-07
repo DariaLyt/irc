@@ -359,32 +359,6 @@ void Server::handlePass(Client &client, const Message &message)
 	maybeRegister(client);
 }
 
-void Server::handleNick(Client &client, const Message &message)
-{
-	const std::vector<std::string> &params = message.getParams();
-
-	if (params.empty())
-	{
-		sendNumeric(client, "431", ":No nickname given");
-		return;
-	}
-	if (!isValidNickname(params[0]))
-	{
-		sendNumeric(client, "432", params[0] + " :Erroneous nickname");
-		return;
-	}
-	if (nicknameInUse(params[0], client.getFd()))
-	{
-		sendNumeric(client, "433", params[0] + " :Nickname is already in use");
-		return;
-	}
-	if (!client.getNickname().empty())
-		_nicknames.erase(client.getNickname());
-	client.setNickname(params[0]);
-	_nicknames[params[0]] = client.getFd();
-	maybeRegister(client);
-}
-
 void Server::handleUser(Client &client, const Message &message)
 {
 	const std::vector<std::string> &params = message.getParams();
